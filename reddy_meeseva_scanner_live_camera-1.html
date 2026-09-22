@@ -1,0 +1,396 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Reddy MeeSeva Document Scanner</title>
+<style>
+*{box-sizing:border-box}body{margin:0;background:#f4f6f9;color:#172033;font-family:Arial,sans-serif}
+.wrap{max-width:850px;margin:auto;padding:16px}.head{background:linear-gradient(135deg,#ef6c00,#ffb300);color:#fff;border-radius:18px;padding:24px;text-align:center}
+.head h1{margin:0 0 6px;font-size:27px}.head p{margin:0}.card{background:#fff;margin-top:16px;padding:18px;border-radius:16px;box-shadow:0 4px 16px #0001}
+h2{font-size:20px;margin:0 0 8px}.hint{font-size:13px;color:#64748b}
+.drop{display:block;border:2px dashed #ef6c00;background:#fff9f1;border-radius:13px;padding:28px 12px;text-align:center;cursor:pointer;margin-top:12px}
+.drop strong{display:block;margin-bottom:5px}input{display:none}.list{margin-top:12px}.row{display:flex;justify-content:space-between;padding:9px;border-bottom:1px solid #eee;font-size:14px;gap:10px}
+.status{margin-top:12px;padding:11px;border-radius:9px;background:#f1f5f9;font-size:14px}.ok{background:#eaf8ee;color:#176b34}.err{background:#fff0f0;color:#a40000}
+.progress{height:11px;background:#e5e7eb;border-radius:20px;margin:12px 0;overflow:hidden}.bar{height:100%;width:0;background:#ef6c00;transition:width .2s}
+button{border:0;border-radius:10px;padding:12px 16px;background:#ef6c00;color:white;font-weight:bold;cursor:pointer;margin:4px 3px 0 0}button:disabled{opacity:.45;cursor:not-allowed}.dark{background:#374151}.green{background:#16803c}
+.result{display:none;background:#f8fafc;border-radius:10px;padding:12px;margin-top:12px}.actions{margin-top:8px}.footer{text-align:center;color:#64748b;font-size:12px;padding:18px}
+<style id="cropStyles">
+.crop-modal{display:none;position:fixed;inset:0;background:#000b;z-index:9999;align-items:center;justify-content:center;padding:12px}
+.crop-box{width:min(96vw,520px);background:#fff;border-radius:16px;padding:14px}
+.crop-title{font-weight:700;font-size:18px;margin-bottom:10px}.crop-area{position:relative;width:100%;aspect-ratio:1/1;background:#111;border-radius:10px;overflow:hidden;touch-action:none}
+.crop-area img{position:absolute;max-width:none;user-select:none;touch-action:none;cursor:grab}.crop-grid{position:absolute;inset:0;pointer-events:none;border:2px solid #fff;background:linear-gradient(90deg,transparent 33%,#fff8 33.3%,transparent 33.6%,transparent 66.4%,#fff8 66.7%,transparent 67%),linear-gradient(0deg,transparent 33%,#fff8 33.3%,transparent 33.6%,transparent 66.4%,#fff8 66.7%,transparent 67%)}
+.crop-controls{display:flex;gap:8px;align-items:center;margin-top:10px}.crop-controls input{display:block;flex:1}.crop-actions{display:flex;gap:8px;margin-top:10px}.crop-actions button{flex:1}
+<style id="liveCameraStyles">
+.livecam-modal{display:none;position:fixed;inset:0;background:#000;z-index:10000;color:#fff;align-items:center;justify-content:center}
+.livecam-box{width:100%;height:100%;display:flex;flex-direction:column;max-width:650px}
+.livecam-video{width:100%;flex:1;object-fit:cover;background:#111}
+.livecam-controls{padding:14px;background:#111;display:flex;gap:10px;justify-content:center}
+.livecam-controls button{min-width:130px}
+.livecam-msg{text-align:center;padding:8px;background:#111;font-size:13px}
+</style></style></style>
+</head>
+<body>
+<div class="wrap">
+<header class="head"><h1>REDDY MEESEVA</h1><p>Document Scanner &amp; Compressor</p></header>
+
+<section class="card">
+<h2>📄 Capture / Upload Documents → PDF</h2>
+<div class="hint">Select multiple files together OR use Capture Document repeatedly. Every captured document is added to the same PDF with its capture time.</div>
+<div class="actions">
+<button type="button" id="galleryBtn">📁 Select Multiple Files</button>
+<button type="button" id="cameraBtn">📷 Capture Document</button>
+</div>
+<div class="hint" style="margin-top:8px">You can select multiple files at once, or capture document photos one-by-one. Each captured photo is added to the same PDF.</div>
+<input id="docs" type="file" multiple accept=".pdf,.jpg,.jpeg,.png,application/pdf,image/jpeg,image/png">
+<input id="camera" type="file" accept="image/*" capture="environment">
+<div id="docList" class="list"></div>
+<div id="docStatus" class="status">No documents selected.</div>
+<div class="progress"><div id="docBar" class="bar"></div></div>
+<button id="makePdf" disabled>Convert &amp; Compress PDF</button>
+<div id="pdfResult" class="result"></div>
+</section>
+
+<section class="card">
+<h2>📸 Applicant Photo → JPG</h2>
+<div class="hint">Select a photo from files or capture a new photo with the camera. Crop first, then automatically compress to 15–18 KB.</div>
+<div class="actions">
+<button type="button" id="photoFileBtn">📁 Select Photo from Files</button>
+<button type="button" id="photoCameraBtn">📷 Capture Photo</button>
+</div>
+<div class="hint" style="margin-top:8px">Choose an existing photo or capture a new photo with the camera. Cropping opens automatically after selection. Camera Capture uses a live camera preview. For browser security, live camera access requires HTTPS (or localhost).</div>
+<input id="photo" type="file" accept=".jpg,.jpeg,.png,image/jpeg,image/png">
+<input id="photoCamera" type="file" accept="image/*" capture="environment" style="display:none">
+<div id="photoStatus" class="status">No photo selected.</div>
+<div class="progress"><div id="photoBar" class="bar"></div></div>
+<button id="makePhoto" disabled>Convert &amp; Compress Photo</button>
+<div id="photoResult" class="result"></div>
+</section>
+
+<section class="card">
+<h2>📦 Final Files</h2>
+<div id="finalStatus" class="status">Generate both files first.</div>
+<div class="hint" style="margin-top:8px">One button lets you share both files together using your phone's Share menu. If sharing is unavailable, both files will download automatically.</div>
+<button id="downloadShareBoth" class="green" disabled>⬇ Download &amp; Share Both Files</button>
+<button id="reset" class="dark">🔄 New Application</button>
+</section>
+<div class="footer">Reddy MeeSeva • Local browser processing • No Gmail required<br>Camera mode adds each captured document to the list instead of replacing the previous photo.</div>
+</div>
+
+<script>
+/* This version loads its PDF engine from a CDN only when PDF work is requested.
+   Photo conversion uses the browser's native Canvas API. */
+let pdfLibPromise=null,pdfJsPromise=null,pdfBlob=null,photoBlob=null,docFiles=[],photoFile=null;
+let docTimes=[];
+
+const $=id=>document.getElementById(id);
+const docs=$("docs"),photo=$("photo");
+
+function loadScript(src){
+ return new Promise((resolve,reject)=>{
+  const s=document.createElement("script");s.src=src;s.onload=resolve;s.onerror=()=>reject(new Error("Could not load required library. Please check your internet connection and refresh."));document.head.appendChild(s);
+ });
+}
+async function loadPdfLib(){
+ if(window.PDFLib)return window.PDFLib;
+ if(!pdfLibPromise)pdfLibPromise=loadScript("https://cdnjs.cloudflare.com/ajax/libs/pdf-lib/1.17.1/pdf-lib.min.js");
+ await pdfLibPromise;return window.PDFLib;
+}
+async function loadPdfJs(){
+ if(window.pdfjsLib)return window.pdfjsLib;
+ if(!pdfJsPromise){
+  pdfJsPromise=loadScript("https://cdnjs.cloudflare.com/ajax/libs/pdfjs-dist/3.11.174/pdf.min.js").then(()=>{
+   pdfjsLib.GlobalWorkerOptions.workerSrc="https://cdnjs.cloudflare.com/ajax/libs/pdfjs-dist/3.11.174/pdf.worker.min.js";
+  });
+ }
+ await pdfJsPromise;return window.pdfjsLib;
+}
+function fmt(n){return n<1024?n+" B":n<1048576?(n/1024).toFixed(1)+" KB":(n/1048576).toFixed(2)+" MB"}
+function esc(s){return s.replace(/[&<>"']/g,x=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[x]))}
+function setBar(id,n){$(id).style.width=Math.max(0,Math.min(100,n))+"%"}
+function sleep(n){return new Promise(r=>setTimeout(r,n))}
+function download(blob,name){
+ if(!blob)return;
+ const u=URL.createObjectURL(blob),a=document.createElement("a");
+ a.href=u;a.download=name;document.body.appendChild(a);a.click();a.remove();
+ setTimeout(()=>URL.revokeObjectURL(u),2000);
+}
+function image(file){
+ return new Promise((res,rej)=>{
+  const u=URL.createObjectURL(file),i=new Image();
+  i.onload=()=>{URL.revokeObjectURL(u);res(i)};i.onerror=()=>{URL.revokeObjectURL(u);rej(new Error("Image could not be read."))};i.src=u;
+ });
+}
+async function imageJpg(file,maxSide=1600,q=.82){
+ const i=await image(file),scale=Math.min(1,maxSide/Math.max(i.naturalWidth,i.naturalHeight));
+ const c=document.createElement("canvas");c.width=Math.max(1,Math.round(i.naturalWidth*scale));c.height=Math.max(1,Math.round(i.naturalHeight*scale));
+ const x=c.getContext("2d");x.fillStyle="#fff";x.fillRect(0,0,c.width,c.height);x.drawImage(i,0,0,c.width,c.height);
+ return await new Promise(r=>c.toBlob(r,"image/jpeg",q));
+}
+async function addImagePage(pdf,file,maxSide=1600,q=.82){
+ const b=await imageJpg(file,maxSide,q),img=await pdf.embedJpg(new Uint8Array(await b.arrayBuffer()));
+ const pg=pdf.addPage([img.width,img.height]);pg.drawImage(img,{x:0,y:0,width:img.width,height:img.height});
+}
+async function addPdfPages(pdf,file){
+ const src=await window.PDFLib.PDFDocument.load(new Uint8Array(await file.arrayBuffer()),{ignoreEncryption:true});
+ const pages=await pdf.copyPages(src,src.getPageIndices());pages.forEach(p=>pdf.addPage(p));
+}
+
+/* Fast path: preserve PDFs and convert images. If result is too large,
+   fallback: render every PDF page to JPEG and rebuild at lower quality. */
+async function makeFastPdf(){
+ const pdf=await PDFLib.PDFDocument.create();
+ pdf.setTitle("Reddy MeeSeva Documents");
+ pdf.setSubject("Document capture times: "+docTimes.map((d,i)=>`${i+1}: ${d.toLocaleString()}`).join(" | "));
+ for(let n=0;n<docFiles.length;n++){
+  const f=docFiles[n];
+  if(f.type==="application/pdf"||/\.pdf$/i.test(f.name))await addPdfPages(pdf,f);
+  else await addImagePage(pdf,f);
+  setBar("docBar",(n+1)/docFiles.length*55);
+ }
+ return new Blob([await pdf.save({useObjectStreams:true})],{type:"application/pdf"});
+}
+async function rasterPdf(scale,q){
+ const pdf=await PDFLib.PDFDocument.create();
+ pdf.setTitle("Reddy MeeSeva Documents");
+ pdf.setSubject("Document capture times: "+docTimes.map((d,i)=>`${i+1}: ${d.toLocaleString()}`).join(" | "));
+ for(let n=0;n<docFiles.length;n++){
+  const f=docFiles[n];
+  if(f.type==="application/pdf"||/\.pdf$/i.test(f.name)){
+   const js=await loadPdfJs(),src=await js.getDocument({data:new Uint8Array(await f.arrayBuffer())}).promise;
+   for(let p=1;p<=src.numPages;p++){
+    const page=await src.getPage(p),vp=page.getViewport({scale:1});
+    const s=Math.min(scale/vp.width,scale/vp.height,1.3),v=page.getViewport({scale:s});
+    const c=document.createElement("canvas");c.width=Math.ceil(v.width);c.height=Math.ceil(v.height);
+    await page.render({canvasContext:c.getContext("2d"),viewport:v}).promise;
+    const b=await new Promise(r=>c.toBlob(r,"image/jpeg",q));
+    const img=await pdf.embedJpg(new Uint8Array(await b.arrayBuffer()));
+    const pg=pdf.addPage([img.width,img.height]);pg.drawImage(img,{x:0,y:0,width:img.width,height:img.height});
+   }
+  }else await addImagePage(pdf,f,scale,q);
+  setBar("docBar",55+(n+1)/docFiles.length*45);
+ }
+ return new Blob([await pdf.save({useObjectStreams:true})],{type:"application/pdf"});
+}
+async function makePdfUnder2MB(){
+ let b=await makeFastPdf();if(b.size<=2097152)return b;
+ const levels=[[1500,.72],[1300,.64],[1100,.56],[950,.48],[800,.40],[650,.32]];
+ for(const [scale,q] of levels){b=await rasterPdf(scale,q);if(b.size<=2097152)return b}
+ throw new Error("Could not reduce this document set below 2 MB. Try fewer pages or clearer source scans.");
+}
+
+function addDocuments(files, capturedNow=false){
+ const arr=[...files];
+ const now=new Date();
+ arr.forEach(f=>{
+   docFiles.push(f);
+   docTimes.push(capturedNow ? new Date() : new Date(f.lastModified || now));
+ });
+ renderDocList();
+}
+function renderDocList(){
+ $("docList").innerHTML=docFiles.map((f,i)=>`<div class="row"><span><b>${i+1}.</b> ${esc(f.name)}<br><span class="hint">Captured/added: ${docTimes[i].toLocaleString()}</span></span><span>${fmt(f.size)} <button type="button" class="dark" style="padding:5px 8px" data-remove="${i}">Remove</button></span></div>`).join("");
+ $("docStatus").className="status";
+ $("docStatus").textContent=docFiles.length?docFiles.length+" document(s) ready.":"No documents selected.";
+ $("makePdf").disabled=!docFiles.length;pdfBlob=null;$("pdfResult").style.display="none";updateFinal();
+}
+docs.onchange=()=>{ addDocuments(docs.files,false); docs.value=""; };
+$("galleryBtn").onclick=()=>docs.click();
+$("docList").addEventListener("click",e=>{
+ const b=e.target.closest("[data-remove]");
+ if(!b)return;
+ const i=Number(b.dataset.remove); docFiles.splice(i,1); docTimes.splice(i,1); renderDocList();
+});
+$("cameraBtn").onclick=()=>$("camera").click();
+$("camera").onchange=()=>{ if($("camera").files.length)addDocuments($("camera").files,true); $("camera").value=""; };
+let cropFile=null,cropImg=$("cropImage"),cropScale=1,cropBase=1,cropX=0,cropY=0,drag=false,dx=0,dy=0,ox=0,oy=0;
+function openCropper(file){
+ cropFile=file;
+ $("photoStatus").className="status";
+ $("photoStatus").textContent="Photo selected. Crop the image below.";
+ const u=URL.createObjectURL(file);
+ cropImg.onload=()=>{URL.revokeObjectURL(u);const a=$("cropArea"),w=a.clientWidth,h=a.clientHeight;
+ cropBase=Math.max(w/cropImg.naturalWidth,h/cropImg.naturalHeight);cropScale=cropBase;
+ cropX=(w-cropImg.naturalWidth*cropScale)/2;cropY=(h-cropImg.naturalHeight*cropScale)/2;
+ $("cropZoom").value=1;renderCrop();$("cropModal").style.display="flex";};
+ cropImg.src=u;
+}
+function renderCrop(){cropImg.style.width=(cropImg.naturalWidth*cropScale)+"px";cropImg.style.height=(cropImg.naturalHeight*cropScale)+"px";cropImg.style.left=cropX+"px";cropImg.style.top=cropY+"px";}
+function clampCrop(){const a=$("cropArea"),w=a.clientWidth,h=a.clientHeight,iw=cropImg.naturalWidth*cropScale,ih=cropImg.naturalHeight*cropScale;
+ cropX=Math.min(0,Math.max(w-iw,cropX));cropY=Math.min(0,Math.max(h-ih,cropY));renderCrop();}
+$("cropZoom").oninput=()=>{const a=$("cropArea"),cx=a.clientWidth/2,cy=a.clientHeight/2,old=cropScale;
+ cropScale=cropBase*Number($("cropZoom").value);cropX=cx-(cx-cropX)*cropScale/old;cropY=cy-(cy-cropY)*cropScale/old;clampCrop();};
+cropImg.onpointerdown=e=>{drag=true;dx=e.clientX;dy=e.clientY;ox=cropX;oy=cropY;cropImg.setPointerCapture(e.pointerId)};
+cropImg.onpointermove=e=>{if(drag){cropX=ox+e.clientX-dx;cropY=oy+e.clientY-dy;clampCrop()}};
+cropImg.onpointerup=()=>drag=false;cropImg.onpointercancel=()=>drag=false;
+$("cropCancel").onclick=()=>{$("cropModal").style.display="none";cropFile=null;photo.value="";photoFile=null;$("makePhoto").disabled=true};
+$("cropApply").onclick=async()=>{
+ const a=$("cropArea"),w=a.clientWidth,h=a.clientHeight,out=document.createElement("canvas"),size=900;out.width=size;out.height=size;
+ const ctx=out.getContext("2d"),img=await image(cropFile);ctx.fillStyle="#fff";ctx.fillRect(0,0,size,size);
+ ctx.drawImage(img,-cropX/cropScale,-cropY/cropScale,w/cropScale,h/cropScale,0,0,size,size);
+ const b=await new Promise(r=>out.toBlob(r,"image/jpeg",.92));
+ photoFile=new File([b],"cropped_photo.jpg",{type:"image/jpeg",lastModified:Date.now()});
+ $("cropModal").style.display="none";$("makePhoto").disabled=false;photoBlob=null;$("photoResult").style.display="none";updateFinal();$("makePhoto").click();
+};
+$("photoFileBtn").addEventListener("click",()=>{
+  const input=$("photo");
+  input.value="";
+  input.click();
+});
+let liveStream=null;
+const liveVideo=$("liveCamVideo");
+
+async function stopLiveCamera(){
+  if(liveStream){liveStream.getTracks().forEach(t=>t.stop());liveStream=null;}
+  liveVideo.srcObject=null;
+  $("liveCamModal").style.display="none";
+}
+async function startLiveCamera(){
+  if(!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia){
+    $("photoStatus").className="status err";
+    $("photoStatus").innerHTML="<b>Camera preview is not available here.</b><br>Open the website using HTTPS (for example after publishing it) or use Select Photo from Files.";
+    return;
+  }
+  try{
+    $("liveCamModal").style.display="flex";
+    $("liveCamMsg").textContent="Starting camera…";
+    liveStream=await navigator.mediaDevices.getUserMedia({
+      video:{facingMode:{ideal:"environment"},width:{ideal:1920},height:{ideal:1080}},
+      audio:false
+    });
+    liveVideo.srcObject=liveStream;
+    await liveVideo.play();
+    $("liveCamMsg").textContent="Position the applicant photo and tap Capture.";
+  }catch(e){
+    await stopLiveCamera();
+    $("photoStatus").className="status err";
+    $("photoStatus").innerHTML="<b>Camera could not start.</b><br>Allow camera permission and make sure the website is opened over HTTPS. You can still use Select Photo from Files.";
+  }
+}
+$("photoCameraBtn").addEventListener("click",startLiveCamera);
+$("liveCamCancel").addEventListener("click",stopLiveCamera);
+$("liveCamCapture").addEventListener("click",async()=>{
+  try{
+    if(!liveVideo.videoWidth)return;
+    const c=document.createElement("canvas");
+    c.width=liveVideo.videoWidth;c.height=liveVideo.videoHeight;
+    c.getContext("2d").drawImage(liveVideo,0,0,c.width,c.height);
+    const blob=await new Promise(r=>c.toBlob(r,"image/jpeg",.94));
+    await stopLiveCamera();
+    const f=new File([blob],"camera_photo.jpg",{type:"image/jpeg",lastModified:Date.now()});
+    openCropper(f);
+  }catch(e){
+    $("liveCamMsg").textContent="Capture failed. Please try again.";
+  }
+});
+window.addEventListener("pagehide",stopLiveCamera);
+photo.onchange=()=>{
+ const f=photo.files[0]||null;
+ if(!f)return;
+ openCropper(f);
+};
+
+$("makePdf").onclick=async()=>{
+ if(!docFiles.length)return;
+ $("makePdf").disabled=true;$("docStatus").textContent="Preparing PDF engine…";setBar("docBar",3);
+ try{
+  await loadPdfLib();$("docStatus").textContent="Converting documents…";
+  pdfBlob=await makePdfUnder2MB();
+  $("pdfResult").style.display="block";$("pdfResult").innerHTML=`<b>PDF ready ✅</b><br>Final size: <strong>${fmt(pdfBlob.size)}</strong> (≤ 2 MB)<br><button class="green" id="pdfNow">⬇ Download PDF</button>`;
+  $("pdfNow").onclick=()=>download(pdfBlob,"MeeSeva_Documents.pdf");
+  $("docStatus").className="status ok";$("docStatus").textContent="PDF created successfully.";
+ }catch(e){$("docStatus").className="status err";$("docStatus").innerHTML="<b>PDF failed:</b> "+esc(e.message)}
+ finally{$("makePdf").disabled=false;setBar("docBar",100);updateFinal()}
+};
+
+$("makePhoto").onclick=async()=>{
+ if(!photoFile)return;
+ $("makePhoto").disabled=true;$("photoStatus").textContent="Converting photo to 15–18 KB…";setBar("photoBar",5);
+ try{
+  let best=null;
+  const sides=[1400,1300,1200,1100,1000,900,800,700,600,520,460,420,380,340,300,260,230,210,190];
+  for(const side of sides){
+   for(let q=.95;q>=.08;q-=.025){
+    const b=await imageJpg(photoFile,side,q);
+    const kb=b.size/1024;
+    setBar("photoBar",Math.min(92,8+(1400-side)/14));
+    if(kb>=15 && kb<18){
+      best=b;
+      break;
+    }
+    if(kb<18 && (!best || b.size>best.size))best=b;
+   }
+   if(best && best.size>=15*1024 && best.size<18*1024)break;
+  }
+  if(!best || best.size>=18*1024){
+   for(let side=400;side>=140 && (!best || best.size>=18*1024);side-=20){
+    for(let q=.75;q>=.08;q-=.025){
+     const b=await imageJpg(photoFile,side,q);
+     if(b.size<18*1024 && (!best || b.size>best.size))best=b;
+     if(best && best.size>=15*1024 && best.size<18*1024)break;
+    }
+   }
+  }
+  if(!best || best.size>=18*1024)throw new Error("Could not create a photo below 18 KB. Please choose a smaller photo.");
+  photoBlob=best;
+  const finalKB=(photoBlob.size/1024).toFixed(1);
+  $("photoResult").style.display="block";
+  $("photoResult").innerHTML=`<b>Photo ready ✅</b><br>Original: ${fmt(photoFile.size)} → Final: <strong>${finalKB} KB</strong><br><span class="hint">Target: 15–18 KB</span><br><button class="green" id="photoNow">⬇ Download JPG</button>`;
+  $("photoNow").onclick=()=>download(photoBlob,"MeeSeva_Photo.jpg");
+  $("photoStatus").className="status ok";$("photoStatus").textContent=`JPG created successfully — ${finalKB} KB.`;
+ }catch(e){$("photoStatus").className="status err";$("photoStatus").innerHTML="<b>Photo failed:</b> "+esc(e.message)}
+ finally{$("makePhoto").disabled=false;setBar("photoBar",100);updateFinal()}
+};
+
+function updateFinal(){
+ const ok=!!pdfBlob&&!!photoBlob;
+ $("finalStatus").className="status "+(ok?"ok":"");
+ $("finalStatus").textContent=ok?"Both files are ready ✅":"Generate both files first.";
+ $("downloadShareBoth").disabled=!ok;
+}
+async function shareBothFiles(){
+ if(!pdfBlob||!photoBlob)return;
+ const pdfFile=new File([pdfBlob],"MeeSeva_Documents.pdf",{type:"application/pdf"});
+ const photoFileShare=new File([photoBlob],"MeeSeva_Photo.jpg",{type:"image/jpeg"});
+ const files=[pdfFile,photoFileShare];
+ try{
+   if(navigator.share && (!navigator.canShare || navigator.canShare({files}))){
+     await navigator.share({
+       title:"Reddy MeeSeva Documents",
+       text:"MeeSeva document PDF and applicant photo",
+       files:files
+     });
+   }else{
+     download(pdfBlob,"MeeSeva_Documents.pdf");
+     await sleep(700);
+     download(photoBlob,"MeeSeva_Photo.jpg");
+     alert("Sharing is not supported by this browser. Both files were downloaded instead.");
+   }
+ }catch(e){
+   if(e && e.name==="AbortError") return;
+   download(pdfBlob,"MeeSeva_Documents.pdf");
+   await sleep(700);
+   download(photoBlob,"MeeSeva_Photo.jpg");
+   alert("Direct sharing was unavailable. Both files were downloaded instead.");
+ }
+}
+$("downloadShareBoth").onclick=shareBothFiles;
+$("reset").onclick=()=>location.reload();
+</script>
+<div id="cropModal" class="crop-modal"><div class="crop-box">
+<div class="crop-title">✂️ Crop Applicant Photo</div>
+<div id="cropArea" class="crop-area"><img id="cropImage"><div class="crop-grid"></div></div>
+<div class="crop-controls"><span class="hint">Zoom</span><input id="cropZoom" type="range" min="1" max="3" step=".01" value="1"></div>
+<div class="hint" style="margin-top:6px">Drag the photo to position it inside the square.</div>
+<div class="crop-actions"><button type="button" class="dark" id="cropCancel">Cancel</button><button type="button" class="green" id="cropApply">Apply Crop</button></div>
+</div></div><div id="liveCamModal" class="livecam-modal">
+ <div class="livecam-box">
+  <div class="livecam-msg" id="liveCamMsg">Position the applicant photo and tap Capture.</div>
+  <video id="liveCamVideo" class="livecam-video" autoplay playsinline muted></video>
+  <div class="livecam-controls">
+   <button type="button" class="dark" id="liveCamCancel">Cancel</button>
+   <button type="button" class="green" id="liveCamCapture">📸 Capture</button>
+  </div>
+ </div>
+</div></body>
+</html>
